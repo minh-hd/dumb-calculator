@@ -1,7 +1,6 @@
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
-import 'dart:developer' as developer;
 
 void main() {
   runApp(const MyApp());
@@ -19,8 +18,11 @@ class MyApp extends StatelessWidget {
         elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(0),
-                ),
+                    borderRadius: BorderRadius.circular(0),
+                    side: BorderSide(
+                        style: BorderStyle.solid,
+                        color: Colors.black26,
+                        width: 1)),
                 textStyle: TextStyle(fontSize: 28))),
         colorScheme: ColorScheme.dark(primary: Colors.grey),
         useMaterial3: true,
@@ -38,18 +40,20 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  String _previousNumber = '0';
   String _currentNumber = '0';
   String _mathSymbol = '';
   int _displayMaxLength = 16;
   bool _isCalculated = false;
 
   void _appendNumber(String additionNumber) {
-    if(_currentNumber.length == _displayMaxLength) {
+    if (_currentNumber.length == _displayMaxLength) {
       return;
     }
     setState(() {
-      if (_currentNumber == '0') {
+      if (_currentNumber == '0' || _isCalculated) {
         _currentNumber = additionNumber;
+        _isCalculated = false;
       } else {
         _currentNumber += additionNumber;
       }
@@ -57,27 +61,37 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _addFraction() {
-    if(!_currentNumber.contains('.')) {
+    if (!_currentNumber.contains('.') && !_isCalculated) {
       setState(() {
         _currentNumber += '.';
-
       });
     }
   }
 
   void _removeDigit() {
     setState(() {
-      if(_currentNumber.length == 1 || (_currentNumber.contains('-') && _currentNumber.length == 2)) {
+      if (_currentNumber == '0') {
+        _previousNumber = '0';
         _currentNumber = '0';
-      } else if(_currentNumber != '0') {
+      }
+
+      if (_currentNumber.length == 1 ||
+          (_currentNumber.contains('-') && _currentNumber.length == 2) ||
+          _isCalculated) {
+        _currentNumber = '0';
+      } else if (_currentNumber != '0') {
         _currentNumber = _currentNumber.substring(0, _currentNumber.length - 1);
       }
     });
   }
 
   void _addDoubleZero() {
+    if (_isCalculated) {
+      return;
+    }
     setState(() {
-      if (_currentNumber != '0' && _currentNumber.length < _displayMaxLength - 1) {
+      if (_currentNumber != '0' &&
+          _currentNumber.length < _displayMaxLength - 1) {
         _currentNumber += '00';
       }
     });
@@ -87,27 +101,64 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       if (_currentNumber != '0' && !_currentNumber.contains('-')) {
         _currentNumber = '-$_currentNumber';
-      } else if(_currentNumber.contains('-')){
+      } else if (_currentNumber.contains('-')) {
         _currentNumber = _currentNumber.replaceAll('-', '');
       }
     });
   }
 
   void _calculatePercentage() {
-    Decimal result = (Decimal.parse(_currentNumber) / Decimal.fromInt(100)).toDecimal();
-
-    if(_currentNumber == '0') {
+    if (_currentNumber == '0') {
       return;
     }
 
+    Decimal result =
+        (Decimal.parse(_currentNumber) / Decimal.fromInt(100)).toDecimal();
+
     setState(() {
-      _currentNumber =  result.toString().length <= _displayMaxLength ? result.toString() : result.toStringAsExponential();
+      _isCalculated = true;
+      _currentNumber = result.toString().length <= _displayMaxLength
+          ? result.toString()
+          : result.toStringAsExponential();
     });
   }
 
-  void _addMath (String symbol) {
+  void _setOperator(String operator) {
     setState(() {
-      _mathSymbol = symbol;
+      _mathSymbol = operator;
+      _previousNumber = _currentNumber;
+      _isCalculated = true;
+    });
+  }
+
+  void _calculate() {
+    late Decimal result;
+
+    switch (_mathSymbol) {
+      case '+':
+        result = Decimal.parse(_previousNumber) + Decimal.parse(_currentNumber);
+      case '-':
+        result = Decimal.parse(_previousNumber) - Decimal.parse(_currentNumber);
+
+      case '*':
+        result = Decimal.parse(_previousNumber) * Decimal.parse(_currentNumber);
+
+      case '/':
+        if (_currentNumber == '0') {
+          setState(() {
+            _isCalculated = true;
+            _currentNumber = 'DMM';
+          });
+          return;
+        }
+        result =
+            (Decimal.parse(_previousNumber) / Decimal.parse(_currentNumber))
+                .toDecimal(scaleOnInfinitePrecision: _displayMaxLength);
+    }
+
+    setState(() {
+      _isCalculated = true;
+      _currentNumber = result.toString();
     });
   }
 
@@ -160,24 +211,44 @@ class _MyHomePageState extends State<MyHomePage> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () => _removeDigit(),
+                          style: ButtonStyle(
+                              backgroundColor:
+                                  MaterialStateProperty.all<Color>(Colors.grey),
+                              foregroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.white)),
                           child: Text(_currentNumber == '0' ? 'AC' : 'C'),
                         ),
                       ),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () => _setNegative(),
+                          style: ButtonStyle(
+                              backgroundColor:
+                                  MaterialStateProperty.all<Color>(Colors.grey),
+                              foregroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.white)),
                           child: Text('+/-'),
                         ),
                       ),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () => _calculatePercentage(),
+                          style: ButtonStyle(
+                              backgroundColor:
+                                  MaterialStateProperty.all<Color>(Colors.grey),
+                              foregroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.white)),
                           child: Text('%'),
                         ),
                       ),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => _addMath('/'),
+                          onPressed: () => _setOperator('/'),
+                          style: ButtonStyle(
+                              backgroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.orange),
+                              foregroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.white)),
                           child: Text('÷'),
                         ),
                       ),
@@ -208,7 +279,12 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => _addMath('*'),
+                          onPressed: () => _setOperator('*'),
+                          style: ButtonStyle(
+                              backgroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.orange),
+                              foregroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.white)),
                           child: Text('x'),
                         ),
                       ),
@@ -239,7 +315,12 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => _addMath('-'),
+                          onPressed: () => _setOperator('-'),
+                          style: ButtonStyle(
+                              backgroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.orange),
+                              foregroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.white)),
                           child: Text('-'),
                         ),
                       ),
@@ -270,7 +351,12 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => _addMath('+'),
+                          onPressed: () => _setOperator('+'),
+                          style: ButtonStyle(
+                              backgroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.orange),
+                              foregroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.white)),
                           child: Text('+'),
                         ),
                       ),
@@ -301,7 +387,12 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {},
+                          onPressed: () => _calculate(),
+                          style: ButtonStyle(
+                              backgroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.orange),
+                              foregroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.white)),
                           child: Text('='),
                         ),
                       ),
