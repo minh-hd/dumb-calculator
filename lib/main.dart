@@ -72,7 +72,6 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       if (_currentNumber == '0') {
         _previousNumber = '0';
-        _currentNumber = '0';
       }
 
       if (_currentNumber.length == 1 ||
